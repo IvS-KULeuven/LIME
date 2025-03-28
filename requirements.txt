@@ -1,0 +1,10 @@
+celery~=5.4
+Flask~=3.1
+gunicorn~=23.0
+matplotlib~=3.10
+pandas~=2.2
+scipy~=1.15
+redis~=5.2
+reportlab~=4.3
+requests~=2.32
+
