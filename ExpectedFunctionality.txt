@@ -1,0 +1,49 @@
+This is just a basic file with some expected functionality of the website.
+
+The website should have working buttons to the different "tabs":
+ - Tool info
+ - Calculator
+ - Grid (This name could/should be more informative, maybe "Batch Calculator")
+ - Contact
+
+Per tab expectations:
+
+### Tool Info ###
+Shows information about the calculator, link to relevant papers, lecture notes on line driven winds, and list some credits.
+
+### Calculator ###
+ - Display a form a that allows users to fill in a specified Luminosity, Effective Temperature, Mass, Metallicity and individual mass fractions of elements.
+ - A Run button can be pressed to start the computation.
+ - The metallicity input automatically updates the mass fractions of the individual elements.
+ - The hydrogen mass fraction is automatically adjusted based on the mass fractions of the other elements to make sure the
+   total mass fraction is equal to 1.
+ - The user should be notified immediately about unphysical input parameters, such as non unity mass fractions and
+   negative or 0 values in the parameters. (Metallicity can be set to zero)
+ - Invalid temperature values should be notified immediately.
+ - Users should be able to choose the "expert output option" to get a pdf output file open up in a new tab upon completion
+ - Users should be able to have a copy of the result emailed to them by pressing the relevant button and filling in their email address
+ - A "loading/running" indicator should appear once the calculation has started.
+ - After successful calculation the output parameters should be presented in the output table
+    (and a PDF loaded if expert output was desired)
+ - After unsuccessful calculation the table is to be filled with no values or nan, and a reason for failure is to be
+   presented in red above the table.
+   ### A full test suite of possible reasons for failures and successes should be defined! ###
+
+### Grid ###
+ - The user has to fill in their email address and upload a csv file.
+ - The user should be immediately notified if the uploaded file is not the correct type
+ - The user should be immediately notified if required columns are missing in the csv file
+ - The user should be notified of successful submission of their batch calculation.
+
+ - The user should receive an email with a csv file attached that contains the output parameters
+ - Failed calculation should be labeled as such in the file and parameters should be set to nan
+ - The reason for failure, if the calculation failed, should be listed in the csv file
+   (Check that failure reasons are produced properly and do not have ","s or ";"s to make sure they do not mess with the csv format.)
+
+ ### Contact ###
+ - A basic contact form where the user can (and need) to specify their email address, name, and write a message.
+   The moderator/admin of the website is to receive an email with the message.
+ - An attachment can be optionally added to the message. The file type must be CSV or PDF.
+ - In case of an incorrect file type, the user should be notified immediately. Incorrect file types will not be
+   attached in the email.
+

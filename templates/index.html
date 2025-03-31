@@ -304,7 +304,7 @@
                 <div class="tabs">
                     <button class="tab" onclick="navigateToTab('info')">Tool Info</button>
                     <button class="tab" onclick="navigateToTab('calculator')">Calculator</button>
-                    <button class="tab" onclick="navigateToTab('grid')">Grid</button>
+                    <button class="tab" onclick="navigateToTab('batch')">Batch Calculator</button>
                     <button class="tab" onclick="navigateToTab('contact')">Contact</button>
                 </div>
             </div>
@@ -539,13 +539,13 @@
             <div id="abundances"></div>
         </div>
         
-        <div id="grid" class="tab-content">
-            <p> The data set should only be trusted for effective temperature (\(\rm T_{eff}\)) between 18000 to 60000 K.
+        <div id="batch" class="tab-content">
+            <p> The atomic line data set should only be trusted for effective temperature (\(\rm T_{eff}\)) between 18000 to 60000 K.
                 Beyond this limit, the underlying Munich Atomic Database either lacks ionization stages or has limited data.
                 We are currently working on an extension to the Munich Atomic Database, and future updates will aim to cover larger temperature range.
             <p>
             <p>You can submit a CSV (comma-separated values) file containing the stellar inputs and abundances.
-            The processed results will be emailed back once completed.</p>
+            The processed results will be emailed back once completed. Up to 200 inputs can be processed per batch. </p>
             <h2>User Info</h2>
             <div class="input-container">
                 <label for="email-grid">Enter your email id:</label>
@@ -830,7 +830,8 @@
                 if (data.task_id) {
                     // Start polling for task status
                     pollTaskStatus(data.task_id);
-                } else {
+                }
+                else {
                     // If no task ID is returned, show an error
                     document.getElementById("loading").style.display = "none";
                     runButton.disabled = false;
@@ -853,6 +854,8 @@
             fetch(`/task_status/${taskId}`)
                 .then(response => response.json())
                 .then(data => {
+                    runButton.disabled = true;
+                    runButton.textContent = "Running";
                     if (data.done) {
                         document.getElementById("loading").style.display = "none";
                         runButton.disabled = false;
@@ -865,7 +868,6 @@
                         document.getElementById("alpha").textContent = data.alpha;
                         document.getElementById("q0").textContent = data.q0;
                         document.getElementById("extra_info").textContent = data.info;
-                        console.log(data.info)
 
                         if (data.download_url) {
                             window.open(data.download_url, "_blank");

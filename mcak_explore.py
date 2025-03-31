@@ -1,25 +1,19 @@
 import numpy as np
-import subprocess
 import matplotlib
-matplotlib.use('Agg') # Use this backend, as it is not interactive.
+matplotlib.use('Agg')  # Use this backend, as it is not interactive.
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import sys
 import cgs_constants as cgs
 from scipy.optimize import curve_fit
-plt.rcParams.update({ 'axes.linewidth':1.2, 'xtick.direction': 'in', 'ytick.direction': 'in','xtick.top': True, 'ytick.right': True, 'xtick.minor.visible':True, 'ytick.minor.visible':True, 'xtick.major.size' : 6, 'xtick.major.width' : 1, 'ytick.major.size' : 8, 'ytick.major.width' : 1, 'xtick.minor.size' : 3.5, 'xtick.minor.width' : 0.6, 'ytick.minor.size' : 3.5, 'ytick.minor.width' : 0.6})
-plt.rcParams.update({'font.size': 15})
 import os
 from mforce import get_force_multiplier
 import gc
 
+matplotlib.rc_file("plotstyle.txt")
 
-# Atomic masses of elements (in atomic mass units, amu)
-atomic_masses = {'H': 1.008,   'HE': 4.003, 'LI': 6.941,  'BE': 9.012,  'B':  10.811, 'C':  12.011, 'N': 14.007,
-                 'O': 16.000,  'F': 18.998, 'NE': 20.180, 'NA': 22.990, 'MG': 24.305, 'AL': 26.982, 'SI': 28.085,
-                 'P': 30.974,  'S': 32.066, 'CL': 35.453, 'AR': 39.948, 'K': 39.098,  'CA': 40.078, 'SC': 44.956,
-                 'TI': 47.880, 'V': 50.941, 'CR': 51.996, 'MN': 54.938, 'FE': 55.847, 'CO': 58.933, 'NI': 58.690,
-                 'CU': 63.546, 'ZN': 65.390}
+# Constant: scaling metallicity to solar
+Z_asplund = 0.01334462136084096e0
 
 # This is a dictionary with dummy results in case things crash, so there is something to work with
 DUMMY_RESULTS = {"Iteration": -1,
@@ -43,39 +37,19 @@ DUMMY_RESULTS = {"Iteration": -1,
                  "density": np.nan,
                  "mdot": np.nan,
                  "Zmass": np.nan,
-                 "Zscale": np.nan,
                  "alphag": np.nan,
-                 "alpha2": np.nan,
+                 "alphal": np.nan,
                  "warning": False,
                  "fail": True,
-                 "fail_reason": ""}
-
-
-class color:
-   # Small class to help emphasize certain printed values
-   PURPLE = '\033[95m'
-   CYAN = '\033[96m'
-   DARKCYAN = '\033[36m'
-   BLUE = '\033[94m'
-   GREEN = '\033[92m'
-   YELLOW = '\033[93m'
-   RED = '\033[91m'
-   BOLD = '\033[1m'
-   UNDERLINE = '\033[4m'
-   END = '\033[0m'
-
-
-def write_input_file(filename, params):
-    """Write input parameters for MForce to the specified file."""
-    with open(filename, 'w') as f:
-        f.write("&init_param\n")
-        for key, value in params.items():
-            f.write(f"{key} = {value}\n")
-        f.write("/\n")
+                 "fail_reason": "",
+                 "warning_message": "",}
 
 
 def lgM(lgt, alpha, Q0):
-    """Compute the logarithmic form of the line force multiplier M(t)."""
+    """
+    Compute the logarithmic form of the line force multiplier M(t).
+    Following Poniatowski (2022) and Gayley (1995)
+     """
     t = 10.0**lgt
     lgM = np.log10(1 / (1 - alpha)) + np.log10((1 + Q0 * t)**(1 - alpha) - 1) - np.log10(Q0 * t)
     return np.nan_to_num(lgM, nan=0.0)
@@ -83,12 +57,23 @@ def lgM(lgt, alpha, Q0):
 
 def fit_data(file_path, t_cri):
     """    
-    Fit the data from the output file and extract line-force parameters Qb, alpha, and Q0.
-    Adjust the fitting range based on t_cri if provided; otherwise, default to 1e-3 Qb.
+    Performs a basic curve fit to the force multiplier as function of t (optical depth proxy) until the specified
+    critical point t_cri. Force multiplier values as function of t are from output file at file_path.
+
+    Fit parameters are alpha and Q0, if alpha > 0.95, switch to finite difference at t_cri rather than global fit.
+
+    Returns:
+         Qbar           Max line force multiplier
+         alpha          Slope of exponential part (preferred value of alpha_g and alpha_l)
+         Q0             Location of switch from optically thick to thin regime
+         lgt_filtered   <array> log t until the critical point (for plotting)
+         alpha_g        alpha resulting from global fit
+         alpha_l        alpha resulting from local fit
     """
-    # Load in data
+
     lgt, Mt = np.loadtxt(file_path, unpack=True)
     Qb = np.max(Mt)
+
     min_mt = Qb / 10**3
     if t_cri is None:
         indices = np.where(Mt >= min_mt)[0]
@@ -100,7 +85,7 @@ def fit_data(file_path, t_cri):
         if len(indices) > 0:
             indices = np.arange(0, indices[-1] + 3)
 
-        indices2 = np.where(Mt >= min_mt*100.)[0]
+        indices2 = np.where(Mt >= min_mt * 100.)[0]
         if len(indices2) > len(indices):
             indices = indices2
     if len(indices) == 0:
@@ -108,52 +93,40 @@ def fit_data(file_path, t_cri):
 
     lgt_filtered = lgt[indices]
     Mt_filtered = Mt[indices]
-    fit_max = max(lgt_filtered)
-    print("lgt Fitted until:", fit_max)
+
     lgMt_filtered = np.log10(Mt_filtered / Qb)
     p0 = (0.67, 200)
     # Limits on alpha and Q0
     bounds = ([0.01, 1e-5], [0.99, 1e8])
-    
+
+    # Attempt basic curve fit to determine parameters alpha and Q0
+    # In case there is a convergence problem with the fit, try again without bounds (and a different method)
     try:
         popt, _ = curve_fit(lgM, lgt_filtered, lgMt_filtered, p0=p0, bounds=bounds, method="trf")
     except RuntimeError:
-        # JS-comment: this needs to be looked at, since when resorting to this method it’s typically
-        # for alpha --> 1, and finding fit alpha=1 then crashes code since that’s a diverging
-        # limit in the theory. ugly hack for now.
-        # but generally: need bounds here as well
         popt, _ = curve_fit(lgM, lgt_filtered, lgMt_filtered, p0=p0, method="lm")
 
     alpha, Q0 = popt
     alpha_g = alpha
-    print("Q0, alpha:",Q0,alpha)
-    # Compute alternative alpha_2 as local finite-difference slope around t_cri.
-    # We use the two points in lgt_filtered whose values are closest to log10(t_cri)
-    target = np.log10(t_cri)
-    sorted_idx = np.argsort(np.abs(lgt_filtered - target))
-    if len(sorted_idx) < 2:
-        alpha_2 = np.nan
-        print("Not enough data points to compute local slope alpha_2.")
-    else:
-        i1, i2 = sorted_idx[:2]
-        # Ensure that the points are in increasing order of lgt
-        if lgt_filtered[i1] > lgt_filtered[i2]:
-            i1, i2 = i2, i1
-        # Compute the finite difference slope
-        delta = lgt_filtered[i2] - lgt_filtered[i1]
-        alpha_2 = (lgMt_filtered[i1] - lgMt_filtered[i2]) / delta
-        print("alternative local finite difference alpha =",alpha_2)
+
+    # for the local fit find the closes values of t closest to t_cri
+    sorted_idx = np.argsort(np.abs(lgt_filtered - np.log10(t_cri)))
+
+    i1, i2 = sorted_idx[:2]
+    # Ensure that the points are in increasing order of lgt
+    if lgt_filtered[i1] > lgt_filtered[i2]:
+        i1, i2 = i2, i1
+    # Compute the finite difference slope
+    delta = lgt_filtered[i2] - lgt_filtered[i1]
+    alpha_l = (lgMt_filtered[i1] - lgMt_filtered[i2]) / delta
 
     if alpha > 0.985:
-        if alpha_2 <= 0.985:
-            print("global alpha too close to diverging limit, resorting")
-            print("to local alpha at t_cri:", alpha_2)
-            alpha = alpha_2
+        if alpha_l <= 0.985:
+            alpha = alpha_l
         else:
-            alpha = 0.99
-            print("too close to alpha divergence limit, setting =",alpha)
-    print("final alpha, alpha-local:", alpha, alpha_2)
-    return Qb, alpha, Q0, lgt_filtered, alpha_g, alpha_2
+            alpha = 0.985
+
+    return Qb, alpha, Q0, lgt_filtered, alpha_g, alpha_l
 
 
 def plot_fit(file_path, alpha, Q0, Qb, iteration, t_cri, random_subdir, lgt_filtered):
@@ -165,18 +138,34 @@ def plot_fit(file_path, alpha, Q0, Qb, iteration, t_cri, random_subdir, lgt_filt
 
     M_reconstructed = Qb * 10**lgM(lgt_filtered, alpha, Q0)
 
-    plt.figure(file_path, figsize=(8, 6))
-    plt.semilogy(lgt, M_original, marker='H', color='g', markerfacecolor='yellowgreen',
-                 markeredgecolor='darkolivegreen', label=r'$M(t)$', markersize=10)
-    plt.semilogy(lgt_filtered, M_reconstructed, color='k', label=r'$M_{\rm FIT}(t)$', linewidth=2)
+    plt.figure(figsize=(8, 6))
+    plt.semilogy(lgt,
+                 M_original,
+                 marker='H',
+                 color='g',
+                 markerfacecolor='yellowgreen',
+                 markeredgecolor='darkolivegreen',
+                 label=r'$M(t)$',
+                 markersize=10)
+
+    plt.semilogy(lgt_filtered,
+                 M_reconstructed,
+                 color='k',
+                 label=r'$M_{\rm FIT}(t)$',
+                 linewidth=2)
 
     # Add vertical line for t_cri
     if t_cri is not None:
-        plt.axvline(x=np.log10(t_cri), color='#892bed', linestyle='--', linewidth=2,label = fr"$\log_{{10}} t_{{\rm cri}}$: {np.around(np.log10(t_cri),2)}")
+        plt.axvline(x=np.log10(t_cri),
+                    color='#892bed',
+                    linestyle='--',
+                    linewidth=2,
+                    label=fr"$\log_{{10}} t_{{\rm cri}}$: {np.around(np.log10(t_cri),2)}")
         
     # Add horizontal dashed line at max M_reconstructed
     max_M_reconstructed = np.max(M_reconstructed)
-    plt.axhline(y=max_M_reconstructed, color='#f08205', linestyle='-.', linewidth=2, label = fr"$\bar{{Q}}$: {np.around(Qb,2)}")
+    plt.axhline(y=max_M_reconstructed, color='#f08205', linestyle='-.', linewidth=2,
+                label=fr"$\bar{{Q}}$: {np.around(Qb,2)}")
 
     plt.xlabel(r"$ \log_{10} (t = \frac{\kappa_e \rho c}{dv/dr})$", fontsize=18)
     plt.ylabel(r"$ \log_{10} M(t)$", fontsize=18)
@@ -194,18 +183,15 @@ def plot_convergence(random_subdir, it_num, mdot_num, qbar_num, alpha_num, q0_nu
     fig, axes = plt.subplots(3, 2, figsize=(8, 8), sharex=True, num=random_subdir)
     # Flatten axes for easy indexing
     axes = axes.flatten()
-    axes[0].plot(it_num, np.log10([mdot * cgs.year / cgs.Msun for mdot in mdot_num]), marker="D", markersize=10,
-                 markerfacecolor='gray', markeredgecolor='k', color='k', linestyle='--', linewidth=2)
-    axes[1].plot(it_num, np.log10(qbar_num), marker="D", markersize=10, markerfacecolor='gray', markeredgecolor='k', color='k',
-                 linestyle='--', linewidth=2)
-    axes[2].plot(it_num, alpha_num, marker="D", markersize=10, markerfacecolor='gray', markeredgecolor='k', color='k',
-                 linestyle='--', linewidth=2)
-    axes[3].plot(it_num, np.log10(q0_num), marker="D", markersize=10, markerfacecolor='gray', markeredgecolor='k', color='k',
-                 linestyle='--', linewidth=2)
-    axes[4].plot(it_num, np.log10(eps_num), marker="D", markersize=10, markerfacecolor='gray', markeredgecolor='k',
-                 color='k', linestyle='--', linewidth=2)
-    axes[5].plot(it_num, np.log10(delrho_num), marker="D", markersize=10, markerfacecolor='gray', markeredgecolor='k',
-                 color='k', linestyle='--', linewidth=2)
+    style_kwargs = {"marker":"D", "markersize":10, "markerfacecolor":'gray',"markeredgecolor":'k', "color":'k',
+                    "linestyle":'--', "linewidth":2}
+
+    axes[0].plot(it_num, np.log10([mdot * cgs.year / cgs.Msun for mdot in mdot_num]), **style_kwargs)
+    axes[1].plot(it_num, np.log10(qbar_num), **style_kwargs)
+    axes[2].plot(it_num, alpha_num, **style_kwargs)
+    axes[3].plot(it_num, np.log10(q0_num), **style_kwargs)
+    axes[4].plot(it_num, np.log10(eps_num), **style_kwargs)
+    axes[5].plot(it_num, np.log10(delrho_num), **style_kwargs)
 
     axes[0].set_ylabel(r"$\dot{M} [M_\odot/yr]$")
     axes[1].set_ylabel(r"$\log_{10}(\bar{Q})$")
@@ -227,7 +213,7 @@ def plot_convergence(random_subdir, it_num, mdot_num, qbar_num, alpha_num, q0_nu
 
 
 def cak_massloss(lum, qbar, q0, alpha, gamma_e, rat):
-    """Calculate mass-loss rate using the CAK formalism. [CITE]"""
+    """Calculate mass-loss rate using the CAK formalism. See paper ... """
     alp = alpha / (1 - alpha) 
     ge = gamma_e / (1 - gamma_e)
     alm = (1 / alpha) - 1
@@ -237,9 +223,8 @@ def cak_massloss(lum, qbar, q0, alpha, gamma_e, rat):
     
     mfd_cak = (fd**(1 / alpha)) * mcak
     mfd_cak *= (1 + 4 * np.sqrt(1 - alpha) / alpha * rat)
-    cut = qbar / q0
-    mfd_cak *= cut 
-    return mfd_cak, cut
+    mfd_cak *= qbar / q0
+    return mfd_cak
 
 
 def construct_output_filename(T, D):
@@ -254,7 +239,7 @@ def radius_calc(lum, teff):
 
 
 def vinf_Kudritzki(alpha, vesc):
-    """Determines the terminal wind speed based on the alpha and escape velocity following Kudritzki (YEAR)"""
+    """Determines the terminal wind speed based on the alpha and escape velocity following Kudritzki (1999)"""
     f1 = 1.6 * (1 - 0.75 * alpha)
     f3 = 1 - 0.3 * np.exp(-vesc / 300 / 1e5)
     vinf = 2.25*alpha/(1-alpha)*vesc*f1*f3
@@ -289,8 +274,23 @@ def run_mforce(parameters):
                          parameters["DIR"])
 
 
-def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max_iterations=15, tolerance=1e-3, logger=None):
+def main(lum, T_eff, M_star, Z_star, Yhe, random_subdir, does_plot=False, max_iterations=15, tolerance=1e-3, logger=None):
     """
+    Input:
+        Lum: The luminosity of the star in solar luminosities
+        T_eff: Effective temperature in Kelvin
+        M_star: Mass of star in Solar masses
+        Z_star: Mass fraction of metals
+        Yhe: Helium number abundance (So not mass fraction!)
+        random_subdir: The temporary folder for the data
+        does_plot: Flag to make plots or not.
+        max_iterations: Determines max number of iterations.
+        tolerance: required precision of calculation.
+        logger: Logging tool for website.
+
+    Return:
+        Dictionary with the main parameters.
+
     Main function that calculates the mass-loss rate based on the Luminosity, Effective temperature, Mass, and
     Metallicity. Calls the MForce code and iterates to converge to a consistent mass-loss rate. Creates a temporary
     directory to put output files in.
@@ -303,33 +303,26 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
 
     # Making a temporary directory
     os.makedirs(random_subdir, exist_ok=True)
-    
-    # Constant: scaling metallicity to solar
-    Z_asplund = 0.01334462136084096e0
 
-    # Some default values to be returned in the end
+    # Some default values to be returned in the end if not defined later.
     warning = False
     failure_reason = ""
     fail = True
 
     if log:
-        logger.debug(f"{color.GREEN}{color.BOLD}"
-                     f"Running simulation with Luminosity={lum}, T_eff={T_eff}, M_star={M_star}, Yhe={Yhe}"
-                     f"{color.END}")
+        logger.debug(f"Running simulation with Luminosity={lum}, T_eff={T_eff}, M_star={M_star}, Yhe={Yhe}")
 
     # Convert some units of input if necessary
     lum = lum * cgs.Lsun
     M_star = M_star * cgs.Msun
-    Z_scale = Z_scale * Z_asplund  # This is the scaled metallicity - in mass fraction
-    R_star = radius_calc(lum,T_eff)
+    R_star = radius_calc(lum, T_eff)
+
     # Estimate the Helium ionization stage for the particle and electron density
     Ihe = 2
     if T_eff < 2.5e4:
       Ihe = 1
     mu = (1. + 4. * Yhe) / (2. + Yhe * (1. + Ihe))
 
-    # Initial guess mass loss rate
-    mdot_initial = 4. * np.pi * R_star**2. * 100. * 1.e7
     # Initial estimate of kappa_e and Gamma factor
     kap_e = cgs.sigth / cgs.mass_p * (1. + Ihe * Yhe) / (1. + 4. * Yhe)
     gamma_e = kap_e * lum/(4. * np.pi * cgs.G * M_star * cgs.c)
@@ -341,21 +334,23 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
     if log:
         logger.debug(f"Initial Gamma_e estimate: {gamma_e}, note: this is capped at 0.95")
 
-    cgas = np.sqrt(cgs.kb * T_eff / (mu * cgs.mass_p))
-    v_esc = np.sqrt(2.0 * cgs.G * M_star / R_star * (1.0 - gamma_e))
-    rat = v_esc / cgas
-
     # Initial guesses of line force parameters and mass-loss rate
     qbar = (Z_star / Z_asplund) * 1000. + 1e-8
     alpha = 2./3.
     q0 = qbar
-    # ----------
+
+    cgas = np.sqrt(cgs.kb * T_eff / (mu * cgs.mass_p))
+    v_esc = np.sqrt(2.0 * cgs.G * M_star / R_star * (1.0 - gamma_e))
+    rat = v_esc / cgas
+
     if log:
-        logger.debug("Estimating CAK massloss")
-    mdot, cut = cak_massloss(lum, qbar, q0, alpha, gamma_e, 1. / rat)
+        logger.debug("Estimating initial CAK mass-loss rate")
+    mdot = cak_massloss(lum, qbar, q0, alpha, gamma_e, 1. / rat)
     if log:
-        logger.debug(f"Estimate: {mdot}, {cut}")
-    phi_cook = 3.0 * rat**(0.3 * (0.36 + np.log10(rat)))
+        logger.debug(f"Estimate: {mdot}")
+
+    # Initial density guess
+    phi_cook = 3.0 * rat**(0.3 * (0.36 + np.log10(rat)))  # See Kudritzki 1989
     v_cri = (phi_cook / (1 - alpha))**0.5
     rho_initial = mdot / (4 * np.pi * v_cri * cgas * R_star**2)
     t_cri = kap_e * cgs.c * rho_initial / (v_cri * cgas / R_star)
@@ -363,15 +358,12 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
     if log:
         logger.debug(f'rho_initial: {rho_initial}, t_cri: {t_cri}')
 
-    lgTeff = np.log10(T_eff)
-    lgrho_ini = np.log10(rho_initial)
-
     # Create dictionary with input parameters for MForce.
-    parameters = {"lgTmin": f"{lgTeff:.3E}",
-                   "lgTmax": f"{lgTeff:.3E}",
+    parameters = {"lgTmin": f"{np.log10(T_eff):.3E}",
+                   "lgTmax": f"{np.log10(T_eff):.3E}",
                    "N_lgT": "1",
-                   "lgDmin": f"{lgrho_ini:.5E}",
-                   "lgDmax": f"{lgrho_ini:.5E}",
+                   "lgDmin": f"{np.log10(rho_initial):.5E}",
+                   "lgDmax": f"{np.log10(rho_initial):.5E}",
                    "N_lgD": "1",
                    "lgttmin": "-8.0",
                    "lgttmax": "10",
@@ -382,11 +374,8 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
                    "ver": False,
                    "DIR": f"{random_subdir}/output"}
 
-    input_file = os.path.join(random_subdir, "in")
-
-    # Initializing some density and mass-loss rate
+    # Initializing some density
     rho = rho_initial
-    mdot = mdot_initial
 
     # Initialize some arrays to keep track of during iterations
     it_num = []
@@ -403,32 +392,41 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
         parameters.update({"lgDmin": f"{np.log10(rho):.5e}",
                            "lgDmax": f"{np.log10(rho):.5e}"})
 
-        T = float(parameters["lgTmin"])  # lgTmin (assuming lgTmin == lgTmax)
-        D = float(parameters["lgDmin"])  # lgDmin (assuming lgDmin == lgDmax)
-
-        output_file = construct_output_filename(T, D)
+        output_file = construct_output_filename(float(parameters["lgTmin"]), float(parameters["lgDmin"]))
         directory = parameters["DIR"].strip("'")
         file_path = directory + '/' + output_file
-        if log:
-            logger.debug(f"Constructed file path: {file_path}")
-            logger.debug("Running Mforce!")
 
-        # Write updated parameters and (re)run MForce
-        write_input_file(input_file, parameters)
+        # (re)run MForce
+        if log:
+            logger.debug(f"Constructed file path: {file_path}, Running MForce!")
         run_mforce(parameters)
+        if log:
+            logger.debug(f"MForce done! We're at iteration: {iteration}")
 
         # kappa_e is read from the data provided by Mforce and the corresponding Gamma_e is updated
         kap_e = read_kappa(parameters["DIR"].strip("'"))
         gamma_e = kap_e * lum / (4. * np.pi * cgs.G * M_star * cgs.c)
 
-        if gamma_e >= 1:
-            failure_reason = f" Gamma_e = {np.around(gamma_e, 2)} > 1, not implemented for these regimes"
+        if log:
+            logger.debug(f"Read kappa_e from Mforce: {kap_e}")
+
+        if not np.isfinite(kap_e):
+            failure_reason = f"kappa_e = {kap_e}"
             if log:
-                logger.debug(f"{color.RED}{color.BOLD}Failure: {failure_reason}{color.END}")
+                logger.debug(f"Failure: {failure_reason}")
             result_dict = dict(DUMMY_RESULTS)
             result_dict["fail"] = True
             result_dict["fail_reason"] = failure_reason
-            return f"{failure_reason}", result_dict
+            return result_dict
+
+        if gamma_e >= 1:
+            failure_reason = f" Gamma_e = {np.around(gamma_e, 2)} > 1, not implemented for these regimes"
+            if log:
+                logger.debug(f"Failure: {failure_reason}")
+            result_dict = dict(DUMMY_RESULTS)
+            result_dict["fail"] = True
+            result_dict["fail_reason"] = failure_reason
+            return result_dict
 
         # New escape velocity based on the new gamma is calculated
         v_esc = np.sqrt(2.0 * cgs.G * M_star / R_star * (1.0 - gamma_e))
@@ -436,12 +434,12 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
         phi_cook = 3.0 * rat**(0.3 * (0.36 + np.log10(rat)))
 
         # Line force parameters are calculated/fitted
-        qbar, alpha, q0, lgt_filtered, alpha_g, alpha_2 = fit_data(file_path, t_cri)
+        qbar, alpha, q0, lgt_filtered, alpha_g, alpha_l = fit_data(file_path, t_cri)
 
         # New mass-loss rate is calculated the old one stored
         mdot_old = mdot
-        mdot, cut = cak_massloss(lum, qbar, q0, alpha, gamma_e, 1./rat)
-        mdot = max(mdot, 1.e-16 * cgs.Msun / cgs.year)
+        mdot = cak_massloss(lum, qbar, q0, alpha, gamma_e, 1./rat)
+        mdot = max(mdot, 1.e-16 * cgs.Msun / cgs.year)  # Add a lower limit
 
         # Calculate what the next density should be based on the current iteration
         v_cri = (phi_cook / (1 - alpha))**0.5
@@ -462,10 +460,8 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
             result_dict = dict(DUMMY_RESULTS)
             result_dict["fail"] = True
             result_dict["fail_reason"] = f"NaN in Rho at iteration: {iteration}"
-            return f"NaN in Rho at iteration: {iteration}", result_dict
-            # raise ValueError('NaN in rho')
+            return result_dict
 
-        # Save data
         it_num.append(iteration)
         mdot_num.append(mdot)
         qbar_num.append(qbar)
@@ -497,8 +493,7 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
                          f"t_crit =           {t_cri}\n"
                          f"density =          {rho}\n"
                          f"Mass loss rate =   {mdot*cgs.year/cgs.Msun}\n"
-                         f"Zmass =            {Z_star}\n"
-                         f"Zscale =           {Z_scale}")
+                         f"Zmass =            {Z_star}")
         if log:
             logger.debug("----------x----------x----------x----------x----------")
 
@@ -510,10 +505,11 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
         # Fail reason 1, cannot drive wind
         if iteration >= 3 and mdot_lim < 1:
             fail = True
-            failure_reason = "Line-driven mass loss is not possible. Too low luminosity-mass ratio or metallicity."
+            failure_reason = ("Line-driven mass loss is not possible. Too low luminosity-mass ratio or metallicity. "
+                              f"(Gamma_e (1.+qbar) = {mdot_lim:.3g} < 1, Gamma_e = {gamma_e:.3g}, Qbar={qbar:.3g}")
             break
 
-        # Convergence Criteria
+        # Convergence criteria
         if iteration >= 3 and abs(rel_rho) <= tolerance and abs(rel_mdot) <= tolerance:
             fail = False
             break
@@ -528,12 +524,10 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
             fail = False
             warning = True
             if log:
-                logger.info(f"{color.YELLOW}{color.BOLD}"
-                            f"WARNING: Not converged to required tolerance (1e-3), please inspect final values before use"
-                            f"{color.END}")
+                logger.info(f"WARNING: Not converged to required tolerance (1e-3), please inspect final values before use")
 
         if iteration == max_iterations - 1 and (abs(rel_rho) > 2.e-1 and abs(rel_mdot) > 2.e-1):
-            fail = False
+            fail = True
             failure_reason = ("The model did not converge after the maximum allowed iterations. Use values with care!" 
                               " Consider using expert mode for more insight.")
             break
@@ -543,7 +537,7 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
 
     # If no mass-loss rate was calculated, bring the unfortunate news to the people
     if fail and log:
-        logger.info(f"{color.RED}{color.BOLD}Failure: {failure_reason}{color.END}")
+        logger.info(f"Failure: {failure_reason}")
 
     # If the calculation was successful make some diagnostic plots and log the parameters values
     else:
@@ -552,11 +546,10 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
             plot_fit(file_path, alpha, q0, qbar, iteration, t_cri, random_subdir, lgt_filtered)
 
         if log:
-            logger.debug(f"{color.GREEN}{color.BOLD}\n Converged! {color.END}{color.BOLD}{color.BLUE}")
-            logger.debug(f'{"Mass-loss rate":>15}{"Qbar":>10}{"alpha":>10}{"Q0":>10}{"vinf":>10}{"zstar":>10}{color.END}'
-                         f"{color.BOLD}{color.GREEN}")
+            logger.debug(f"\n Converged!")
+            logger.debug(f'{"Mass-loss rate":>15}{"Qbar":>10}{"alpha":>10}{"Q0":>10}{"vinf":>10}{"zstar":>10}')
             logger.debug(f"{mdot * cgs.year / cgs.Msun:>15.3g}{qbar:>10.3g}{alpha:>10.3g}"
-                         f"{q0:>10.3g}{vinf:>10.3g}{Z_star:>10.3g}{color.END}")
+                         f"{q0:>10.3g}{vinf:>10.3g}{Z_star:>10.3g}")
 
     result_dict = {"Iteration": iteration,
                    "rho": np.log10(rho),
@@ -579,15 +572,15 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
                    "density": rho,
                    "mdot": mdot * cgs.year / cgs.Msun,
                    "Zmass": Z_star,
-                   "Zscale": Z_scale,
                    "alphag": alpha_g,
-                   "alpha2": alpha_2,
+                   "alphal": alpha_l,
                    "warning": warning,
                    "fail": fail,
                    "fail_reason": failure_reason}
 
     if warning:
-        result_dict["warning_message"] = "WARNING: Not converged to required tolerance (1e-3), please inspect final values before use"
+        result_dict["warning_message"] = ("WARNING: Not converged to required tolerance (1e-3),"
+                                          " please inspect final values before use")
     else:
         result_dict["warning_message"] = ""
 
@@ -604,11 +597,13 @@ def main(lum, T_eff, M_star, Z_star, Z_scale, Yhe, random_subdir, does_plot, max
     gc.collect()
 
     if fail:
+        result_dict["mdot"] = np.nan
+        result_dict["vinf"] = np.nan
         if result_dict["fail_reason"] == "":
             result_dict["fail_reason"] = "Unknown error, check if input values are valid!"
-        return f"FAILURE {failure_reason}", result_dict
+        return result_dict
 
-    return str(random_subdir), result_dict
+    return result_dict
 
 
 if __name__ == "__main__":
@@ -621,4 +616,4 @@ if __name__ == "__main__":
     Yhel = float(sys.argv[6])
     random_subdir = str(sys.argv[7])
     
-    main(lum, T_eff, M_star, Z_star, Z_scale, Yhel, random_subdir)
+    main(lum, T_eff, M_star, Z_star, Yhel, random_subdir)
