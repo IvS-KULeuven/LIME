@@ -13,7 +13,7 @@
             background-color: #f4f9f4;
             color: #2c3e50;
             text-align: left;
-            font-size: 22px; 
+            font-size: 22px;
             opacity: 0;
             transition: opacity 0.1s ease;
         }
@@ -98,7 +98,7 @@
             align-items: flex-start;
             justify-content: flex-end;
         }
-        
+
         .tabs {
             display: flex;
             gap: 10px;
@@ -106,14 +106,14 @@
         .tab {
             padding: 10px 20px;
             cursor: pointer;
-            background-color: #46754a; 
+            background-color: #46754a;
             color: white;
             border: none;
             border-radius: 5px;
             font-size: 18px;
             transition: background-color 0.3s ease;
         }
-        
+
         .active-tab {
             background-color: #2c3e50; 
         }
@@ -182,39 +182,63 @@
 
         .input-container {
             display: flex;
-            justify-content: space-between;
             flex-wrap: wrap;
             gap: 20px;
+            justify-content: space-between;
         }
-
-        .input-container div {
-            flex: 1;
-            min-width: 200px; 
+        .input-container > div {
+            flex: 1 1 22%; /* Default: 4 in a row */
+            min-width: 200px;
+            box-sizing: border-box;
+        }
+        /* 2 per row on medium screens */
+        @media (max-width: 1300px) {
+            .input-container > div {
+                flex: 1 1 45%;
+            }
+        }
+        /* 1 per row on small screens */
+        @media (max-width: 650px) {
+            .input-container > div {
+                flex: 1 1 100%;
+            }
         }
 
         .logos-container {
             display: flex;
             justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
             margin-top: 40px;
         }
         .logos-container img {
             margin: 0 20px;
         }
 
-        .logo-ku {
-            width: 150px;
-            height: 50px;
-        }
-        
-        .logo-erc {
-            width: 100px;
-            height: auto;
-        }
-        
+    .logo-ku,
+    .logo-erc,
+    .logo-fwo {
+        height: auto;
+        max-width: 150px;
+        width: 100%;
+    }
+    /* Scale down on tablets */
+    @media (max-width: 900px) {
+        .logo-ku,
+        .logo-erc,
         .logo-fwo {
-            width: 100px;
-            height: auto;
+            max-width: 120px;
         }
+    }
+    /* Scale down more on phones */
+    @media (max-width: 500px) {
+        .logo-ku,
+        .logo-erc,
+        .logo-fwo {
+            max-width: 90px;
+        }
+    }
 
     .tooltip {
         position: relative;
@@ -267,9 +291,34 @@
         box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
     }
 
+    /* 75% width on medium screens */
+    @media (max-width: 1300px) {
+        table {
+            width: 75%;
+            margin: 20px auto;
+            font-size: 18px;
+        }
+    }
+
+    /* Full width on small screens */
+    @media (max-width: 650px) {
+        table {
+            width: 95%;
+            margin: 20px auto;
+            font-size: 18px;
+        }
+    }
+
+
     th, td {
         padding: 12px;
         text-align: left;
+    }
+
+    @media (max-width: 600px) {
+        th, td {
+            padding: 10px;
+        }
     }
 
     th {
@@ -285,6 +334,131 @@
         background-color: #BDC3C7;
     }
 
+    /* Hide by default */
+    .mobile-menu-icon {
+        display: none;
+        font-size: 28px;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+
+    .mobile-sidebar {
+        display: none;
+        position: fixed;
+        top: 0;
+        right: -100%;
+        height: 100%;
+        width: 240px;
+        background-color: #a0cfa5;
+        box-shadow: -3px 0 10px rgba(0, 0, 0, 0.2);
+        padding: 20px;
+        flex-direction: column;
+        gap: 15px;
+        transition: right 0.3s ease;
+        z-index: 1000;
+    }
+
+    .mobile-sidebar.show {
+        right: 0;
+        display: flex;
+    }
+
+    .mobile-sidebar .close-btn {
+        align-self: flex-end;
+        font-size: 28px;
+        cursor: pointer;
+        margin-bottom: 10px;
+    }
+
+    /* Mobile view only */
+    @media (max-width: 768px) {
+        .tabs-container {
+            display: none; /* Hide desktop tabs */
+        }
+
+        .mobile-menu-icon {
+            display: block; /* Show hamburger */
+        }
+    }
+
+        /* Small phones */
+    @media (max-width: 480px) {
+        body {
+            font-size: 16px;
+        }
+
+        h1 {
+            font-size: 36px;
+        }
+
+        h2 {
+            font-size: 18px;
+        }
+
+        h3 {
+            font-size: 20px;
+        }
+
+        label,
+        input,
+        select,
+        table,
+        .tab,
+        button {
+            font-size: 16px;
+        }
+
+        .tab {
+            padding: 8px 10px;
+        }
+    }
+
+    /* Tablets and medium phones */
+    @media (min-width: 481px) and (max-width: 768px) {
+        body {
+            font-size: 18px;
+        }
+
+        h1 {
+            font-size: 48px;
+        }
+
+        h2 {
+            font-size: 20px;
+        }
+
+        h3 {
+            font-size: 22px;
+        }
+
+        label,
+        input,
+        select,
+        table,
+        .tab,
+        button {
+            font-size: 18px;
+        }
+    }
+
+    pre {
+        background-color: #a0cfa5;
+        padding: 10px;
+        border-radius: 5px;
+        overflow-x: auto;
+        font-family: monospace;
+        font-size: 16px;
+        max-width: 100%;
+        box-sizing: border-box;
+<!--        margin: 10px 0;-->
+    }
+    /* Optional: scale font down on small screens */
+    @media (max-width: 500px) {
+        pre {
+            font-size: 14px;
+        }
+    }
+
     </style>
     <script type="text/javascript" async
         src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
@@ -294,10 +468,22 @@
 <body>
     <div class="container">
         <div class="header">
+
+            <!-- Mobile Hamburger Menu -->
+            <div class="mobile-menu-icon" onclick="toggleSidebar()">☰</div>
+            <!-- Sidebar Menu -->
+            <div class="mobile-sidebar" id="mobileSidebar">
+                <div class="close-btn" onclick="toggleSidebar()">×</div>
+                <button class="tab" onclick="navigateToTab('info'); toggleSidebar()">Tool Info</button>
+                <button class="tab" onclick="navigateToTab('calculator'); toggleSidebar()">Calculator</button>
+                <button class="tab" onclick="navigateToTab('batch'); toggleSidebar()">Batch Calculator</button>
+                <button class="tab" onclick="navigateToTab('contact'); toggleSidebar()">Contact</button>
+            </div>
+
             <div class="header-left">
                 <img src="{{ url_for('static', filename='logo.png') }}" alt="MCAK-Mforce Logo" class="logo">
                 <h1>LIME</h1>
-                <h2>Line-driven Iterative Mass-loss Estimator</h2>
+                <h2>Line-driven-wind Iterative Mass-loss Estimator</h2>
             </div>
         
             <div class="tabs-container">
@@ -322,19 +508,17 @@
                 <span class="citation">
                     <a href="https://doi.org/10.1086/176492" target="_blank">Gayley (1995)</a>; <a href="https://doi.org/10.48550/arXiv.2204.09981" target="_blank">Poniatowski et al. (2022)</a>.
                 </span>
-                For a given set of stellar parameters and chemical composition, we obtain predictions for mass-loss rates and the three line-force parameters \(\rm \bar{Q}\), \(\rm Q_0\), and \(\rm \alpha\) at the wind critical point, and also an estimate of the terminal wind speed.</p>
+                For a given set of stellar parameters and chemical composition, we obtain predictions for mass-loss rates and the three line-force parameters \(\rm \bar{Q}\), \(\rm Q_0\), and \(\rm \alpha\) at the wind critical point.
+                Additionally, we also provide a (less exact) estimate of the terminal wind speed. This is based on the fitting-formula in
+                <span class="citation">
+                    <a href="https://doi.org/10.1146/annurev.astro.38.1.613" target="_blank">Kudritzki & Puls (2000)</a>,
+                </span>
+                 using line-force parameters as given by LIME.
+                As such, it does not take into account differences in line-driving efficiency between the wind critical point and the outer wind.</p>
             <p>In addition to its speed and simplicity, a strength of our mass-loss calculator is that it avoids uncertainties related to applying fit formulae to underlying model grids calculated for more restricted parameter ranges. Moreover, individual chemical abundances can be trivially modified, and their effects upon predicted mass-loss rates explored. This thus also allows for potential applications toward stars that are significantly chemically modified at the surface.</p>
             <p><strong> Further Reading:</strong> For more in depth understanding of line-driven stellar wind theory, you can refer to the <a href="{{ url_for('static', filename='Line_Driven_Theory_Notes.pdf') }}" download style="color: rgb(86, 97, 245); text-decoration: none; font-weight: bold;"> lecture notes</a>
                 by Prof. Jon Sundqvist.  
             </p>
-
-
-<!--            <h2>Usage</h2>-->
-<!--            <p>To compute mass-loss rates, the user needs to input some basic stellar parameters: the luminosity of the star, \(\rm L_\star\) (in terms of solar luminosity), mass of the star, \(\rm M_\star\) (in solar mass), the effective temperature of the star, \(\rm T_{ eff}\) (in Kelvin), and the metallicity of the star, \(\rm Z_\star\) (for solar \(\rm Z_\star = Z_\odot =1 \)). Default scalings are provided from the solar abundance scale by -->
-<!--                <span class="citation">-->
-<!--                    <a href="https://doi.org/10.48550/arXiv.0909.0948" target="_blank">Asplund et al. (2009)</a> -->
-<!--                </span>-->
-<!--                but the user is free to change ths mass fractions as they wish. A change only in scaling metallicity scales all the metals (i.e., from Li-Zn). If you use LIME for your work, please cite <span class="citation">Sundqvist et al. 2025</span> and also provide a footnote with the URL of this website.</p>-->
 
             <h2>Credits</h2>
             <p> <strong> If you use LIME for your work, please cite <span class="citation">Sundqvist, Debnath, Backs et al. 2025</span> and also provide a footnote with the URL of this website. </strong> </p>
@@ -345,61 +529,6 @@
                 </span>
                 group (led by Prof. Jon Sundqvist) with funding from KU Leuven, European Research Council (ERC) and Fonds voor Wetenschappelijk Onderzoek – Vlaanderen (FWO).</p>
         </div>
-<!--        <div id="example" class="tab-content">           -->
-<!--            <h2>Brief methodology</h2>-->
-<!--            <p> The tool uses (a modified version of) CAK theory as-->
-<!--                formulated by -->
-<!--                <span class="citation">-->
-<!--                        <a href="https://doi.org/10.1086/176492" target="_blank">Gayley (1995)</a>-->
-<!--                    </span> to calculate mass-loss rates, incorporating a high-opacity cut-off in line strength -->
-<!--                    <span class="citation">-->
-<!--                        <a href="https://doi.org/10.1086/166977" target="_blank">Owocki et al. 1988</a>-->
-<!--                    </span>.-->
-<!--                Additionally, the finite disk angle effect -->
-<!--                <span class="citation">-->
-<!--                    (<a href="https://ui.adsabs.harvard.edu/abs/1986A%26A...164...86P/abstract" target="_blank">Pauldrach et al. 1986</a>)-->
-<!--                </span>-->
-<!--                is accounted for by following  <span class="citation">-->
-<!--                    <a href="https://ui.adsabs.harvard.edu/abs/1989A%26A...219..205K/abstract" target="_blank">Kudritzki et al. (1989)</a>-->
-<!--                </span>. It also includes a finite sound speed correction based on -->
-<!--                <span class="citation">-->
-<!--                    <a href="https://doi.org/10.1086/380123" target="_blank">Owocki & ud-Doula (2004) </a>-->
-<!--                </span>. -->
-<!--                For the explicit mass loss rate formula please check Eq (1) in <span class="citation"> Sundqvist et al. (2025) </span>. </p>   -->
-<!--            <div style="display: flex; gap: 20px; justify-content: center; align-items: flex-start; flex-wrap: wrap;">-->
-<!--                <div style="flex: 1; max-width: 45%; text-align: center;">-->
-<!--                    <img src="{{ url_for('static', filename='Mf.png') }}" alt="Line force Multiplier" style="width: 100%; height: auto;">-->
-<!--                    <p><strong>Figure 1:</strong> Line force Multiplier</p>-->
-<!--                </div>-->
-<!--                <div style="flex: 1; max-width: 45%; text-align: center;">-->
-<!--                    <img src="{{ url_for('static', filename='itr.png') }}" alt="Iteration" style="width: 100%; height: auto;">-->
-<!--                    <p><strong>Figure 2:</strong> Iteration</p>-->
-<!--                </div>-->
-<!--            </div>-->
-<!--            <p> For a given \( \rm (\rho, T) \), LIME computes the line-force multiplier directly based on the millions of lines in the atomic data base. This line force multiplier -->
-<!--              is then fitted using 3 parameters \( \rm \bar{Q}, Q_0\) and \(\rm \alpha\), where the fitting is tuned to always include the estimated critical t parameter, see <span class="citation"> Sundqvist et al. (2025) </span> for details. This procedure is then iterated until the critical point density and mass-loss rate are converged to a certain tolerance. In <span class="citation"> Figure 2 </span> it can be seen that such convergence is typically reached within a few iterations. <span class="citation"> Figure 1</span> displays examples of force multipliers and corresponding fits, including the position of critical t. -->
-<!--            <h2>Comparison with existing empirical rates and prescirptions</h2>     -->
-<!--            <p> Here below we show empirically derived mass-loss rates  <span class="citation">-->
-<!--                (<a href="https://doi.org/10.1051/0004-6361/202142742" target="_blank">Brands et al.</a>;<a href="https://doi.org/10.1051/0004-6361/202451893" target="_blank">Backs et al.</a>;<a href="https://doi.org/10.48550/arXiv.2410.14937" target="_blank">Verhamme et al.</a>) -->
-<!--            </span> for OB stars as compared to LIME predictions. Further details are again given in  <span class="citation"> Sundqvist et al. (2025) </span>. <p>   -->
-<!--            <div style="display: flex; gap: 20px; justify-content: center; align-items: flex-start; flex-wrap: wrap;">-->
-<!--                <div style="flex: 1; max-width: 45%; text-align: center;">-->
-<!--                    <img src="{{ url_for('static', filename='massloss.png') }}" alt="Mass loss rate" style="width: 100%; height: auto;">-->
-<!--                    <p><strong>Figure 3:</strong> Comparison with empirically obtained rates and prescriptions</p>-->
-<!--                </div>-->
-<!--                <div style="flex: 1; max-width: 45%; text-align: center;">-->
-<!--                    <img src="{{ url_for('static', filename='lineparameters.png') }}" alt="Iteration" style="width: 100%; height: auto;">-->
-<!--                    <p><strong>Figure 4:</strong> Line force parameters obtained for the dataset using our method</p>-->
-<!--                </div>-->
-<!--            </div>-->
-<!--            <p> Figure 4 displays the logarithmic ratio of the mass loss rates obtained from some different alternative prescriptions <span class="citation">-->
-<!--                (<a href="https://doi.org/10.48550/arXiv.astro-ph/0101509 " target="_blank">Vink et al. 2001</a>;<a href="https://doi.org/10.48550/arXiv.2203.08218" target="_blank">Bjorklund et al. 2022</a>;<a href="https://doi.org/10.48550/arXiv.2311.01257" target="_blank"> Krti&ccaron;ka et al.2024</a>)-->
-<!--                compared to the emprically obtained mass loss rates. Across this range, LIME performs as well or even better than these alternative recipes based on more elaborate line-driven wind models. In part this might be because these recipes are actually fit-formulae -->
-<!--                (typically assuming power-law scaling of \((\rm\dot{M}\)) with stellar parameters) based on underlying grid-calculations for a restricted number of models. This introduces scatter and-->
-<!--                uncertainties when applied to actual stars (and even more when extrapolated outside the domains of the original calculations). By contrast, LIME computes everything on-the-fly for any given set of input stellar parameters,removing-->
-<!--                such intrinsic uncertainties. Additionally, our approach allows us to directly tune individual abundances, whereas in the laternative recipes only general scalings with overall metallicity Z are provided and applied. <p>-->
-
-<!--        </div>-->
 
         <div id="contact" class="tab-content">
             <h2>Contact Us</h2>
@@ -563,10 +692,9 @@
                 Ensure HE, luminosity, teff, etc., are written with correct capitalization.
             </p>
             <pre>
-            name,luminosity,teff,mstar,zscale,HE,C,N,FE
-            Star1,500000,40000,52,1.0,0.243,0.0002,0.0000065,0.00000045
-            Star2,200000,21000,20,0.2,0.280,0.00005,0.000000007,0.0000000013
-            </pre>                        
+name, luminosity, teff, mstar, zscale, HE, C, N, FE
+Star1, 500000, 40000, 52, 1.0, 0.243, 0.0002, 0.0000065, 0.00000045
+Star2, 200000, 21000, 20, 0.2, 0.280, 0.00005, 0.000000007, 0.0000000013</pre>
             <div class="input-container">
                 <input type="file" id="csvFile" accept=".csv">
             </div>
@@ -607,36 +735,36 @@
             abundancesDiv.style.display = "flex";
             abundancesDiv.style.flexWrap = "wrap";
             abundancesDiv.style.gap = "20px";
-        
+
             let count = 0;
             let rowDiv = document.createElement("div");
             rowDiv.style.display = "flex";
             rowDiv.style.justifyContent = "space-between";
             rowDiv.style.width = "100%";
-        
+
             const elementsPerRow = 4; // Now 4 instead of 3
-        
+
             for (const [element, value] of Object.entries(defaultAbundances)) {
                 const container = document.createElement("div");
                 container.style.display = "flex";
                 container.style.flexDirection = "column";
                 container.style.width = "22%"; // Ensures 4 elements fit evenly within 100%
-                
+
                 const label = document.createElement("label");
                 label.textContent = element;
-        
+
                 const input = document.createElement("input");
                 input.type = "number";
                 input.step = "any";
                 input.value = value;
                 input.id = `abundance-${element}`;
-        
+
                 container.appendChild(label);
                 container.appendChild(input);
                 rowDiv.appendChild(container);
-        
+
                 count++;
-        
+
                 if (count % elementsPerRow === 0) {
                     abundancesDiv.appendChild(rowDiv);
                     rowDiv = document.createElement("div");
@@ -769,6 +897,32 @@
                 }
              if (zscale < 0) {
                     alert("Please enter a valid metallicity of the star.");
+                    runButton.disabled = false; // Re-enable button
+                    runButton.textContent = "Run"; // Restore button text
+                    return;
+                }
+
+             if (!luminosity) {
+                    alert("Please enter a luminosity.");
+                    runButton.disabled = false; // Re-enable button
+                    runButton.textContent = "Run"; // Restore button text
+                    return;
+                }
+             if (!mstar) {
+                    alert("Please enter a mass.");
+                    runButton.disabled = false; // Re-enable button
+                    runButton.textContent = "Run"; // Restore button text
+                    return;
+                }
+             if (!zscale) {
+                    alert("Please enter a metallicity.");
+                    runButton.disabled = false; // Re-enable button
+                    runButton.textContent = "Run"; // Restore button text
+                    return;
+                }
+
+             if (!teff) {
+                    alert("Please enter an effective temperature.");
                     runButton.disabled = false; // Re-enable button
                     runButton.textContent = "Run"; // Restore button text
                     return;
@@ -1010,6 +1164,10 @@
           // Handle hash changes when user clicks or uses browser back/forward
           window.addEventListener("hashchange", showTabFromHash);    
 
+    function toggleSidebar() {
+        const sidebar = document.getElementById("mobileSidebar");
+        sidebar.classList.toggle("show");
+    }
     </script>
     <!-- Footer -->
     <div style="text-align: center; margin-top: 50px; padding: 20px; background-color: #a0cfa5; color: #2c3e50; font-size: 18px;">
