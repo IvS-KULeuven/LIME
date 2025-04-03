@@ -665,7 +665,7 @@ def get_processing_status(task_id):
 
 
 @app.route('/tmp/<session_id>/<path:filename>')
-def download_temp_file(session_id, filename, ):
+def download_temp_file(session_id, filename):
     session_tmp_dir = os.path.join(ServerConfig.BASE_TMP_DIR, session_id)  
     file_path = os.path.abspath(os.path.join(session_tmp_dir, filename))  
 
