@@ -9,7 +9,8 @@ from mcak_explore import DUMMY_RESULTS
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import simpleSplit
-from reportlab.platypus import Table, TableStyle
+from reportlab.platypus import Table, TableStyle, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from PIL import Image
 import pandas as pd
@@ -256,27 +257,11 @@ def make_data_dict(results_dict):
             "qbar": f"{results_dict['Qbar']:.4g}",
             "alpha": f"{results_dict['alpha']:.2f}",
             "q0": f"{results_dict['Q0']:.4g}",
-            "info": f"{results_dict['fail_reason']}"}
+            "info": f"{results_dict['fail_reason']}{results_dict['warning_message']}"}
     return data
 
 
-def make_fail_pdf(output_dir, pdf_name, failure_reason):
-    """Makes a simple PDF file that shows the reason of the failed calculation"""
-    pdf_filename = os.path.join(output_dir, f"{pdf_name}.pdf")
-    c = canvas.Canvas(pdf_filename, pagesize=letter)
-    c.setFont("Helvetica-Bold", 18)
-    c.drawString(220, 700, "Simulation Failed")
-    c.setFont("Helvetica", 14)
-    c.drawString(100, 650, "Reason for failure:")
-    wrapped_text = simpleSplit(failure_reason, "Helvetica", 12, 400)
-    y_pos = 620
-    for line in wrapped_text:
-        c.drawString(120, y_pos, line)
-        y_pos -= 20
-    c.save()
-
-
-def make_output_pdf(output_dir, pdf_name, results_dict, abundances, input_parameters):
+def make_success_pdf(output_dir, pdf_name, results_dict, abundances, input_parameters):
     """
     Makes a pdf with more detailed output of the results.
     """
@@ -300,20 +285,45 @@ def make_output_pdf(output_dir, pdf_name, results_dict, abundances, input_parame
     c = canvas.Canvas(pdf_filename, pagesize=letter)
     page_width, page_height = letter
 
-    logo_path = "./static/logo_2.png"
+    logo_path = "./static/logo.png"
     title = "LIME Results"
 
     if os.path.exists(logo_path):
-        c.drawImage(logo_path, 50, page_height - 150, width=120, height=120, preserveAspectRatio=True, anchor='c')
+        c.drawImage(logo_path, 25, page_height - 125, width=120, height=120,
+                    preserveAspectRatio=True, anchor='c', mask="auto")
 
     # Add a warning at the top of the pdf file if there is a potential issue
-    warning_path = "./static/warning.png"
     if results_dict["warning"]:
-        c.setFont("Helvetica", 10)
-        c.drawString(130, page_height - 15, results_dict["warning_message"])
-        if os.path.exists(warning_path):
-            c.drawImage(warning_path, 113, page_height - 17.5, width=15, height=15, preserveAspectRatio=True,
-                        anchor='c')
+
+        custom_style = ParagraphStyle(
+            "CustomStyle",
+            parent=getSampleStyleSheet()["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=20,
+            textColor=colors.orange,
+            leading=30)
+
+        para = Paragraph(results_dict["warning_message"], custom_style)
+        width = page_width - 200
+        height = 400
+        para.wrapOn(c, width, height)
+        para.drawOn(c, 150, page_height - 130)
+
+    if results_dict["fail"]:
+
+        custom_style = ParagraphStyle(
+            "CustomStyle",
+            parent=getSampleStyleSheet()["Normal"],
+            fontName="Helvetica-Bold",
+            fontSize=20,
+            textColor=colors.red,
+            leading=30)
+
+        para = Paragraph(results_dict["fail_reason"], custom_style)
+        width = page_width - 200
+        height = 400
+        para.wrapOn(c, width, height)
+        para.drawOn(c, 150, page_height - 130)
 
     c.setFont("Helvetica-Bold", 30)
     c.drawString(220, page_height - 150, title)
@@ -472,21 +482,21 @@ def process_computation(lum, teff, mstar, zscale, zstar, helium_abundance, abund
         logger.info(f"Starting calculation with L={lum:.3g}, T={teff:.3g}, M={mstar:.3g}, Z={zstar:.3g}")
         results_dict = mcak_main(lum, teff, mstar, zstar, helium_abundance, output_dir, does_plot, logger=logger)
         logger.info(f"Calculation done! It took {results_dict['Iteration']} iterations in {time() - start:.2f} seconds")
+
         if results_dict["fail"]:
             failure_reason = results_dict["fail_reason"]
             logger.info(f"Computation failed: {failure_reason}")
 
-            if does_plot:
-                make_fail_pdf(output_dir, "result", failure_reason)
-                logger.info("Made a failed calculation pdf")
-            return results_dict
-
-        # make some diagnostic plots and informative tables for the pdf output.
         if does_plot:
-            logger.info("Making result pdf")
-            input_parameters = [lum, mstar, teff, zstar, zscale]
-            make_output_pdf(output_dir, "result", results_dict, abundances, input_parameters)
-            logger.info("PDF made!")
+
+            if not results_dict["fail"] or "expert" in results_dict["fail_reason"].lower():
+                logger.info("Making result pdf")
+                input_parameters = [lum, mstar, teff, zstar, zscale]
+                make_success_pdf(output_dir, "result", results_dict, abundances, input_parameters)
+                logger.info("PDF made!")
+            else:
+                logger.info("No PDF made as there is nothing to show. ")
+
         return results_dict
 
     except Exception as e:
@@ -532,6 +542,7 @@ def process_data(data):
     logger.info("Starting model calculation")
     # Keep track of the number of requests
     increment_request_count()
+    does_plot = False
     try:
         # Extract parameters
         luminosity = float(data.get("luminosity", 0.0))
@@ -548,7 +559,7 @@ def process_data(data):
 
         # Always send the expert mode output per email.
         if recipient_email != "":
-            expert_mode = True
+            does_plot = True
         
         # Calculate the metallicity and helium number abundance based on the input mass fractions
         zstar = calculate_metallicity_massb(abundances)
@@ -567,8 +578,6 @@ def process_data(data):
         # In individual calculations always make the verification plots
         if expert_mode:
             does_plot = True
-        else:
-            does_plot = False
 
         # Run computation in a separate thread
         results_dict = process_computation(luminosity, teff, mstar, zscale, zstar, helium_abundance, abundances,
@@ -576,8 +585,13 @@ def process_data(data):
 
         table_data = make_data_dict(results_dict)
 
-        # Check if the PDF exists at the correct path
-        if expert_mode and not os.path.exists(pdf_path):
+        # We only produce a pdf file if the model is successful, or if the output can give extra insight.
+        have_pdf = does_plot and ("expert" in results_dict["fail_reason"].lower()
+                                    or not results_dict["fail"])
+
+        # If we should have a pdf, but it is not there:
+        # Check if the PDF exists at the correct path, no need to check if there is no pdf due to failure.
+        if have_pdf and not os.path.exists(pdf_path):
             logger.error(f"Did not find the PDF at {pdf_path}")
             with app.app_context():
                 return {"error": f"PDF generation failed. Expected at {pdf_path}", **base_table_data}, 500
@@ -585,10 +599,11 @@ def process_data(data):
         # Schedule cleanup
         threading.Timer(20, shutil.rmtree, args=[session_tmp_dir], kwargs={"ignore_errors": True}).start()
 
-        if expert_mode:
+        if have_pdf:
             # Generate a downloadable link
-            relative_session_id = os.path.relpath(session_tmp_dir, base_tmp_dir)
-            pdf_url = url_for("download_temp_file", session_id=relative_session_id, filename=f"{pdf_name}/result.pdf", _external=True)
+            if expert_mode or recipient_email:
+                relative_session_id = os.path.relpath(session_tmp_dir, base_tmp_dir)
+                pdf_url = url_for("download_temp_file", session_id=relative_session_id, filename=f"{pdf_name}/result.pdf", _external=True)
 
         # **Send Email if recipient email is provided**
         if recipient_email:
@@ -619,9 +634,10 @@ def process_data(data):
                 "python3", "./mailing/mailer.py",
                 "--t", recipient_email,
                 "--s", "LIME Computation Results",
-                "--b", email_body])
+                "--b", email_body,
+                "--a", pdf_path])
 
-        if expert_mode:
+        if have_pdf and expert_mode:
             with app.app_context():
                 logger.info(f"Model calculation done PDF available at {pdf_url}")
                 return {"message": "Computation complete", "download_url": pdf_url, **table_data}, 200
@@ -649,7 +665,7 @@ def get_processing_status(task_id):
 
 
 @app.route('/tmp/<session_id>/<path:filename>')
-def download_temp_file(session_id, filename):
+def download_temp_file(session_id, filename, ):
     session_tmp_dir = os.path.join(ServerConfig.BASE_TMP_DIR, session_id)  
     file_path = os.path.abspath(os.path.join(session_tmp_dir, filename))  
 
@@ -664,7 +680,12 @@ def download_temp_file(session_id, filename):
         logger.error(f"File NOT FOUND: {file_path}")
         return jsonify({"error": f"File {filename} not found"}), 404
 
-    response = send_file(file_path, mimetype='application/pdf')
+    user_agent = request.headers.get("User-Agent", "").lower()
+    is_mobile = any(mobile in user_agent for mobile in ["iphone", "android", "ipad", "mobile"])
+    logger.debug(f"User-Agent: {user_agent}, is_mobile: {is_mobile}")
+
+    response = send_file(file_path, mimetype='application/pdf',
+                         as_attachment=is_mobile, download_name="LIME_Expert_Output.pdf")
     
     def cleanup():
         shutil.rmtree(session_tmp_dir, ignore_errors=True)
@@ -796,7 +817,7 @@ def upload_csv(file_data, user_email):
 
                 zstar = calculate_metallicity_massb(abundances)
 
-                #Keep He fixed and adjust H so the total remains 1
+                #  Keep He fixed and adjust H so the total remains 1
                 helium_abundance = abundances["HE"]
                 hydrogen_abundance = 1.0 - (total_metal_mass + helium_abundance)
 
@@ -889,10 +910,7 @@ def upload_csv(file_data, user_email):
 
     logging.info("Finished batch process computation. ")
     return jsonify(response_message), 200
-    #
-    # except Exception as e:
-    #     print(e)
-    #     return jsonify({"error": f"Unexpected error in upload_csv: {str(e)}"}), 500
+
 
 
 if __name__ == '__main__':

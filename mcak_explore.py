@@ -420,7 +420,7 @@ def main(lum, T_eff, M_star, Z_star, Yhe, random_subdir, does_plot=False, max_it
             return result_dict
 
         if gamma_e >= 1:
-            failure_reason = f" Gamma_e = {np.around(gamma_e, 2)} > 1, not implemented for these regimes"
+            failure_reason = fr" Γ = {np.around(gamma_e, 2)} > 1, not implemented for these regimes"
             if log:
                 logger.debug(f"Failure: {failure_reason}")
             result_dict = dict(DUMMY_RESULTS)
@@ -506,7 +506,7 @@ def main(lum, T_eff, M_star, Z_star, Yhe, random_subdir, does_plot=False, max_it
         if iteration >= 3 and mdot_lim < 1:
             fail = True
             failure_reason = ("Line-driven mass loss is not possible. Too low luminosity-mass ratio or metallicity. "
-                              f"(Gamma_e (1.+qbar) = {mdot_lim:.3g} < 1, Gamma_e = {gamma_e:.3g}, Qbar={qbar:.3g}")
+                              f"(Γ (1 + Q̄) = {mdot_lim:.3g} < 1, Γ = {gamma_e:.3g}, Q̄={qbar:.3g}")
             break
 
         # Convergence criteria
@@ -535,12 +535,9 @@ def main(lum, T_eff, M_star, Z_star, Yhe, random_subdir, does_plot=False, max_it
         # Update the density to the target density for the next iteration
         rho = rho_target
 
-    # If no mass-loss rate was calculated, bring the unfortunate news to the people
-    if fail and log:
-        logger.info(f"Failure: {failure_reason}")
-
-    # If the calculation was successful make some diagnostic plots and log the parameters values
-    else:
+    # If the calculation was successful make some diagnostic plots and log the values
+    # Also allows the figure to be made if the failure reason suggests to look at the expert output.
+    if not fail or "expert" in failure_reason.lower():
         if does_plot:
             plot_convergence(random_subdir, it_num, mdot_num, qbar_num, alpha_num, q0_num, eps_num, delrho_num)
             plot_fit(file_path, alpha, q0, qbar, iteration, t_cri, random_subdir, lgt_filtered)
@@ -550,6 +547,10 @@ def main(lum, T_eff, M_star, Z_star, Yhe, random_subdir, does_plot=False, max_it
             logger.debug(f'{"Mass-loss rate":>15}{"Qbar":>10}{"alpha":>10}{"Q0":>10}{"vinf":>10}{"zstar":>10}')
             logger.debug(f"{mdot * cgs.year / cgs.Msun:>15.3g}{qbar:>10.3g}{alpha:>10.3g}"
                          f"{q0:>10.3g}{vinf:>10.3g}{Z_star:>10.3g}")
+
+    # If no mass-loss rate was calculated, bring the unfortunate news to the people
+    elif log:
+        logger.info(f"Failure: {failure_reason}")
 
     result_dict = {"Iteration": iteration,
                    "rho": np.log10(rho),

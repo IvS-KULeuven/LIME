@@ -459,6 +459,30 @@
         }
     }
 
+    /* Base style */
+    .toggle-row label {
+        font-size: 20px;
+        color: #333;
+    }
+
+    /* Tablet screens */
+    @media (max-width: 900px) {
+        .toggle-row label {
+            font-size: 18px;
+        }
+    }
+
+    /* Small phones */
+    @media (max-width: 500px) {
+        .toggle-row label {
+            font-size: 16px;
+        }
+
+        .switch {
+            transform: scale(0.85);
+        }
+    }
+
     </style>
     <script type="text/javascript" async
         src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
@@ -521,7 +545,10 @@
             </p>
 
             <h2>Credits</h2>
-            <p> <strong> If you use LIME for your work, please cite <span class="citation">Sundqvist, Debnath, Backs et al. 2025</span> and also provide a footnote with the URL of this website. </strong> </p>
+            <p> <strong> If you use LIME for your work, please cite
+                <span class="citation">
+                    <a href="https://arxiv.org/abs/2504.00936" target="_blank">Sundqvist, Debnath, Backs et al. 2025</a>
+                </span> and also provide a footnote with the URL of this website. </strong> </p>
 
             <p>This tool has been developed by the 
                 <span class="citation">
@@ -637,22 +664,26 @@
                 </tbody>
             </table>
 
+            <div class="toggle-row">
             <div style="display: flex; align-items: center; gap: 10px; margin-top: 20px;">
+
                 <label class="switch">
                     <input type="checkbox" id="email-toggle" onchange="toggleEmailInput()">
                     <span class="slider"></span>
                 </label>
-                <label for="email-toggle" style="font-size: 22px; color: #333;">Receive a copy via email</label>
+                <label for="email-toggle" style="color: #333;">Receive a copy via email</label>
                 <label class="switch">
                     <input type="checkbox" id="expert-toggle">
                     <span class="slider"></span>
                 </label>
-                <label for="expert-toggle" style="font-size: 22px; color: #333;">Expert Outputs</label>
-            </div>
+                <label for="expert-toggle" style="color: #333;">Expert Outputs (opens a pdf file)</label>
+                </div>
+
             
             <div id="email-input-container" style="display: none; margin-top: 10px;">
                 <label for="user-email">Enter your email:</label>
                 <input type="email" id="user-email" placeholder="example@example.com">
+            </div>
             </div>
             
             <h2>Mass fractions</h2>
