@@ -636,21 +636,21 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Mass-loss rate (\(\dot{M}\))</td>
+                        <td>Mass-loss rate </td>
                         <td id="mass_loss_rate"> </td>
 <!--                        <td> {{ data.mass_loss_rate }} </td>-->
                     </tr>
                     <tr>
-                        <td>Terminal velocity (\(v_{\infty}\))</td>
+                        <td>Terminal velocity</td>
                         <td id="terminal_velocity"> </td>
 <!--                        <td> {{ data.terminal_velocity }} </td>-->
                     </tr>
                     <tr>
-                        <td>Eddington ratio (\(\Gamma\))</td>
+                        <td>Eddington ratio </td>
                         <td id="gamma_e"> </td>
                     </tr>
                     <tr>
-                        <td>\(\bar{Q}\) (Qbar)</td>
+                        <td>\(\bar{Q}\) </td>
                         <td id="qbar"> </td>
                     </tr>
                     <tr>
@@ -945,13 +945,12 @@ Star2, 200000, 21000, 20, 0.2, 0.280, 0.00005, 0.000000007, 0.0000000013</pre>
                     runButton.textContent = "Run"; // Restore button text
                     return;
                 }
-             if (!zscale) {
-                    alert("Please enter a metallicity.");
+             if (zscale === "" || isNaN(zscale)) {
+                    alert("Please enter a valid number for metallicity.");
                     runButton.disabled = false; // Re-enable button
                     runButton.textContent = "Run"; // Restore button text
                     return;
                 }
-
              if (!teff) {
                     alert("Please enter an effective temperature.");
                     runButton.disabled = false; // Re-enable button
