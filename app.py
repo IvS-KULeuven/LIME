@@ -293,13 +293,13 @@ def make_success_pdf(output_dir, pdf_name, results_dict, abundances, input_param
                     preserveAspectRatio=True, anchor='c', mask="auto")
 
     # Add a warning at the top of the pdf file if there is a potential issue
-    if results_dict["warning"]:
 
+    if results_dict["warning"]:
         custom_style = ParagraphStyle(
             "CustomStyle",
             parent=getSampleStyleSheet()["Normal"],
             fontName="Helvetica-Bold",
-            fontSize=20,
+        fontSize=20,
             textColor=colors.orange,
             leading=30)
 
@@ -472,7 +472,7 @@ def process_computation(lum, teff, mstar, zscale, zstar, helium_abundance, abund
         massabun_loc = os.path.join(output_dir, "output")
         os.makedirs(massabun_loc, exist_ok=True)
         abundance_filename = os.path.join(massabun_loc, "mass_abundance")
-        
+
         with open(abundance_filename, "w") as f:
             for i, (element, value) in enumerate(abundances.items(), start=1):
                 f.write(f"{i:2d}  '{element.upper():2s}'   {value:.14f}\n")
@@ -665,7 +665,7 @@ def get_processing_status(task_id):
 
 
 @app.route('/tmp/<session_id>/<path:filename>')
-def download_temp_file(session_id, filename, ):
+def download_temp_file(session_id, filename):
     session_tmp_dir = os.path.join(ServerConfig.BASE_TMP_DIR, session_id)  
     file_path = os.path.abspath(os.path.join(session_tmp_dir, filename))  
 
@@ -811,7 +811,7 @@ def upload_csv(file_data, user_email):
                     if element in ["H", "HE"]:
                         abundances[element] = float(row[element]) if element in row and not pd.isna(row[element]) else default_value
                     else:
-                        scaled_value = (float(row[element]) if element in row and not pd.isna(row[element]) else default_value) * zscale
+                        scaled_value = (float(row[element]) if element in row and not pd.isna(row[element]) else default_value * zscale)
                         abundances[element] = scaled_value
                         total_metal_mass += scaled_value
 
